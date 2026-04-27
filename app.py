@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # --- PAGE CONFIG & CUSTOM STYLING ---
-st.set_page_config(page_title="Universal Menu Guide", page_icon="🎢", layout="centered")
+st.set_page_config(page_title="Frank's Universal Food Guide", page_icon="🎢", layout="centered")
 
 # Professional UI styling
 st.markdown("""
