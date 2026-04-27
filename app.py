@@ -94,7 +94,7 @@ else:
                     user_rate = st.slider(f"Your score for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"slide_{index}")
                     
                     # CHANGE THIS to your email
-                    admin_email = "YOUR_EMAIL@gmail.com" 
+                    admin_email = "rcatholic@yahoo.com" 
                     email_body = f"Rating for {item_name} at {row['Restaurant']}: {user_rate} stars"
                     mailto_link = f"mailto:{admin_email}?subject=Menu Rating&body={email_body}"
                     
