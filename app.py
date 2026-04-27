@@ -5,7 +5,6 @@ import os
 st.set_page_config(page_title="Universal Menu", page_icon="🎢", layout="centered")
 st.title("🎢 Universal Menu Search")
 
-# Helper to turn numbers into star icons
 def get_stars(rating):
     try:
         r = float(rating)
@@ -22,15 +21,18 @@ if not files:
 else:
     target_file = files[0]
     try:
+        # 1. LOAD AND SCRUB DATA
         df = pd.read_csv(target_file).fillna("")
+        # This line removes hidden spaces from every single cell in your sheet
+        df = df.applymap(lambda x: str(x).strip() if isinstance(x, str) else x)
         
-        # Clean Price for sorting
+        # 2. CLEAN PRICE FOR SORTING
         df['numeric_price'] = (
             df['Price'].replace('[\$,]', '', regex=True)
             .replace('N/A', '0').apply(pd.to_numeric, errors='coerce').fillna(0)
         )
 
-        # UI Controls
+        # 3. UI CONTROLS
         query = st.text_input("🔍 Search for a menu item").lower().strip()
         
         col1, col2 = st.columns(2)
@@ -39,7 +41,7 @@ else:
         with col2:
             sort_option = st.selectbox("⚖️ Sort by", ["Lowest Price", "Highest Rating"])
 
-        # Filtering
+        # 4. FILTERING
         filtered = df.copy()
         if selected_park != "All Parks":
             filtered = filtered[filtered['Park'] == selected_park]
@@ -49,7 +51,7 @@ else:
             mask = filtered['Item'].apply(lambda x: all(word in str(x).lower() for word in search_words))
             filtered = filtered[mask]
 
-        # Sorting Logic
+        # 5. SORTING
         if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
         elif sort_option == "Highest Rating":
@@ -59,25 +61,24 @@ else:
 
         st.divider()
         
-        # Display
+        # 6. DISPLAY
         if len(filtered) == 0:
             st.warning("No items found.")
         else:
-            st.write(f"Showing {len(filtered)} items:")
             for index, row in filtered.iterrows():
-                # 1. Create the star string
+                # Get Star String
                 star_text = ""
                 if 'Rating' in row and str(row['Rating']).strip() != "":
-                    stars = get_stars(row['Rating'])
-                    star_text = f" {stars}"
+                    star_text = f" {get_stars(row['Rating'])}"
 
-                # 2. FIXED LABEL: This puts the price back in the header!
-                item_label = f"{row['Item']} — {row['Price']}{star_text}"
+                # The Header Label
+                # We use .strip() here too just to be 100% safe
+                price_display = str(row['Price']).strip()
+                item_label = f"{row['Item']} — {price_display}{star_text}"
                 
                 with st.expander(item_label):
-                    # Big star display inside if available
                     if star_text:
-                        rev_count = f"({int(row['Review_Count'])} reviews)" if 'Review_Count' in row and str(row['Review_Count']) != "" else ""
+                        rev_count = f"({int(float(row['Review_Count']))} reviews)" if 'Review_Count' in row and str(row['Review_Count']) != "" else ""
                         st.subheader(f"{star_text} {rev_count}")
                     
                     st.write(f"🏠 **Restaurant:** {row['Restaurant']}")
