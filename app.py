@@ -74,6 +74,11 @@ else:
                 item_label = f"{item_name}{price_display}{star_display}"
                 
                 with st.expander(item_label):
+                    # --- PHOTO SECTION ---
+                    # Checks if 'Image_URL' column exists and has a link
+                    if 'Image_URL' in row and row['Image_URL'] != "":
+                        st.image(row['Image_URL'], use_container_width=True)
+                    
                     if star_display:
                         try:
                             r_count = row['Review_Count']
@@ -93,28 +98,18 @@ else:
                     st.write("📝 **Submit a Rating:**")
                     user_rate = st.slider(f"Your score for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"slide_{index}")
                     
-                    # CHANGE THIS to your email
-                    admin_email = "rcatholic@yahoo.com" 
+                    admin_email = "YOUR_EMAIL@gmail.com" 
                     email_body = f"Rating for {item_name} at {row['Restaurant']}: {user_rate} stars"
                     mailto_link = f"mailto:{admin_email}?subject=Menu Rating&body={email_body}"
                     
-                    # Corrected HTML Button
                     btn_html = f'''
                         <a href="{mailto_link}" target="_blank">
-                            <button style="
-                                background-color: #007bff; 
-                                color: white; 
-                                border: none; 
-                                padding: 8px 16px; 
-                                border-radius: 4px; 
-                                cursor: pointer;
-                                font-weight: bold;">
+                            <button style="background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
                                 📧 Email Rating
                             </button>
                         </a>
                     '''
                     st.markdown(btn_html, unsafe_allow_html=True)
-                    st.caption("Note: This opens your email app so you can send the rating to the admin.")
 
     except Exception as e:
         st.error(f"⚠️ App Error: {e}")
