@@ -2,59 +2,53 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Set page title and icon
 st.set_page_config(page_title="Universal Menu", page_icon="🎢", layout="centered")
-
 st.title("🎢 Universal Menu Search")
 
-# 1. FIND THE CSV FILE AUTOMATICALLY
+# 1. FIND FILE
 files = [f for f in os.listdir('.') if f.endswith('.csv')]
 
 if not files:
-    st.error("📂 No CSV file found in your GitHub folder! Please upload your 'Universal_Master_Menu.csv' file.")
+    st.error("📂 No CSV file found!")
 else:
-    # Use the first CSV file found in the folder
     target_file = files[0]
-    
     try:
-        # Load the data
-        df = pd.read_csv(target_file).fillna("")
+        # 2. LOAD AND CLEAN DATA
+        df = pd.read_csv(target_file)
+        # Convert all columns to strings and strip hidden whitespace
+        for col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
         
-        # 2. SEARCH INTERFACE
-        query = st.text_input("🔍 Search for food (e.g. 'Pizza', 'Vegan', 'Taco')")
+        # 3. SEARCH INTERFACE
+        query = st.text_input("🔍 Search for food (e.g. 'Burger', 'Pizza')").lower().strip()
         
-        # 3. FILTERING LOGIC
-        filtered = df.copy()
+        # 4. FILTERING LOGIC (Improved)
         if query:
-            # Search across all columns (Item, Restaurant, Park, Details)
-            mask = filtered.apply(lambda row: query.lower() in row.astype(str).str.lower().values, axis=1)
-            filtered = filtered[mask]
+            # Check if query exists in ANY of these columns
+            mask = (
+                df['Item'].str.lower().str.contains(query) | 
+                df['Restaurant'].str.lower().str.contains(query) | 
+                df['Details'].str.lower().str.contains(query)
+            )
+            filtered = df[mask]
+        else:
+            filtered = df.head(20) # Show first 20 if search is empty
 
-        # 4. RESULTS DISPLAY
+        # 5. DISPLAY
         st.divider()
         
         if len(filtered) == 0:
-            st.warning("No items found matching that search.")
+            st.warning(f"No items found matching '{query}'.")
+            # Debug: show column names if search fails
+            st.write("Columns available:", list(df.columns))
         else:
-            # Show how many items were found
-            if query:
-                st.write(f"Found {len(filtered)} items for '{query}':")
-            else:
-                st.write(f"Showing first 20 of {len(df)} total items. Use the search box to find more!")
-
-            # Limit display to 20 items if no search is active to keep the app fast
-            display_limit = len(filtered) if query else 20
-            
-            for i, (index, row) in enumerate(filtered.iterrows()):
-                if i >= display_limit:
-                    break
-                
-                # Each item is a clickable dropdown
+            st.write(f"Showing {len(filtered)} results:")
+            for index, row in filtered.iterrows():
                 with st.expander(f"**{row['Item']}** — {row['Price']}"):
                     st.write(f"📍 **{row['Restaurant']}**")
                     st.caption(f"Park: {row['Park']}")
-                    if row['Details']:
+                    if row['Details'] and row['Details'].lower() != "nan":
                         st.info(row['Details'])
 
     except Exception as e:
-        st.error(f"⚠️ Error reading the CSV: {e}")
+        st.error(f"⚠️ Error: {e}")
