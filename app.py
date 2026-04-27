@@ -9,6 +9,7 @@ st.title("🎢 Universal Menu Search")
 def get_stars(rating):
     try:
         r = float(rating)
+        if r <= 0: return ""
         full_stars = int(r)
         half_star = 1 if (r - full_stars) >= 0.5 else 0
         return "⭐" * full_stars + ("½" if half_star else "")
@@ -51,10 +52,10 @@ else:
         # Sorting Logic
         if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
-        elif sort_option == "Highest Rating" and 'Rating' in df.columns:
-            # Convert Rating to numeric for sorting, put empty ratings at the bottom
-            filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
-            filtered = filtered.sort_values(by='temp_rate', ascending=False)
+        elif sort_option == "Highest Rating":
+            if 'Rating' in filtered.columns:
+                filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
+                filtered = filtered.sort_values(by='temp_rate', ascending=False)
 
         st.divider()
         
@@ -62,18 +63,23 @@ else:
         if len(filtered) == 0:
             st.warning("No items found.")
         else:
+            st.write(f"Showing {len(filtered)} items:")
             for index, row in filtered.iterrows():
-                # Check for ratings
-                star_display = ""
-                if 'Rating' in row and str(row['Rating']) != "":
+                # 1. Create the star string
+                star_text = ""
+                if 'Rating' in row and str(row['Rating']).strip() != "":
                     stars = get_stars(row['Rating'])
-                    rev_count = f"({int(row['Review_Count'])} reviews)" if 'Review_Count' in row and str(row['Review_Count']) != "" else ""
-                    star_display = f"{stars} {rev_count}"
+                    star_text = f" {stars}"
 
-                label = f"{row['Item']} — {row['Price']}"
-                with st.expander(f"**{label}**"):
-                    if star_display:
-                        st.subheader(star_display)
+                # 2. FIXED LABEL: This puts the price back in the header!
+                item_label = f"{row['Item']} — {row['Price']}{star_text}"
+                
+                with st.expander(item_label):
+                    # Big star display inside if available
+                    if star_text:
+                        rev_count = f"({int(row['Review_Count'])} reviews)" if 'Review_Count' in row and str(row['Review_Count']) != "" else ""
+                        st.subheader(f"{star_text} {rev_count}")
+                    
                     st.write(f"🏠 **Restaurant:** {row['Restaurant']}")
                     st.caption(f"🌍 **Park:** {row['Park']}")
                     if row['Details'] and str(row['Details']).lower() != "nan":
