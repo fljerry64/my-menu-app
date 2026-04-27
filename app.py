@@ -27,7 +27,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🎢 Frank's Universal Food Guide")
+st.title("🍔 Frank's Universal Food Guide")
 st.markdown("---")
 
 # --- HELPER FUNCTIONS ---
