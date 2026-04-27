@@ -21,22 +21,18 @@ if not files:
 else:
     target_file = files[0]
     try:
-        # LOAD DATA - keep_default_na=False is the 'nan' killer
         df = pd.read_csv(target_file, keep_default_na=False)
         
-        # CLEANING
         for col in df.columns:
             df[col] = df[col].astype(str).str.strip()
             df[col] = df[col].replace(['nan', 'NaN', 'N/A', 'n/a', 'None', 'null'], '')
 
-        # NUMERIC PRICE
         df['numeric_price'] = (
             df['Price'].str.replace('[\$,]', '', regex=True)
             .replace('', '0')
             .apply(pd.to_numeric, errors='coerce').fillna(0)
         )
 
-        # UI CONTROLS
         query = st.text_input("🔍 Search for a menu item").lower().strip()
         
         col1, col2 = st.columns(2)
@@ -45,7 +41,6 @@ else:
         with col2:
             sort_option = st.selectbox("⚖️ Sort by", ["Lowest Price", "Highest Rating"])
 
-        # FILTERING
         filtered = df.copy()
         if selected_park != "All Parks":
             filtered = filtered[filtered['Park'] == selected_park]
@@ -55,7 +50,6 @@ else:
             mask = filtered['Item'].apply(lambda x: all(word in str(x).lower() for word in search_words))
             filtered = filtered[mask]
 
-        # SORTING
         if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
         elif sort_option == "Highest Rating":
@@ -65,7 +59,6 @@ else:
 
         st.divider()
         
-        # DISPLAY
         if len(filtered) == 0:
             st.warning("No items found.")
         else:
@@ -81,7 +74,6 @@ else:
                 item_label = f"{item_name}{price_display}{star_display}"
                 
                 with st.expander(item_label):
-                    # Show current rating
                     if star_display:
                         try:
                             r_count = row['Review_Count']
@@ -96,17 +88,33 @@ else:
                     if row['Details'] != "":
                         st.info(row['Details'])
 
-                    # NEW: MANUAL RATING SECTION
+                    # MANUAL RATING SECTION
                     st.write("---")
-                    st.write("📝 **Record your own rating:**")
-                    user_rate = st.slider(f"Rate {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"slide_{index}")
+                    st.write("📝 **Submit a Rating:**")
+                    user_rate = st.slider(f"Your score for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"slide_{index}")
                     
-                    # Create a mailto link that pre-fills an email with the rating
-                    # Replace 'YOUR_EMAIL@gmail.com' with your actual email
-                    email_body = f"I want to rate {item_name} at {row['Restaurant']} a {user_rate} stars!"
-                    mailto_link = f"mailto:YOUR_EMAIL@gmail.com?subject=New Rating for {item_name}&body={email_body}"
+                    # CHANGE THIS to your email
+                    admin_email = "YOUR_EMAIL@gmail.com" 
+                    email_body = f"Rating for {item_name} at {row['Restaurant']}: {user_rate} stars"
+                    mailto_link = f"mailto:{admin_email}?subject=Menu Rating&body={email_body}"
                     
-                    st.markdown(f'<a href="{mailto_link}" target="_blank" style="text-decoration: none;"><button style="background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Send Rating to Admin</button></a>', unsafe_index=True, unsafe_allow_html=True)
+                    # Corrected HTML Button
+                    btn_html = f'''
+                        <a href="{mailto_link}" target="_blank">
+                            <button style="
+                                background-color: #007bff; 
+                                color: white; 
+                                border: none; 
+                                padding: 8px 16px; 
+                                border-radius: 4px; 
+                                cursor: pointer;
+                                font-weight: bold;">
+                                📧 Email Rating
+                            </button>
+                        </a>
+                    '''
+                    st.markdown(btn_html, unsafe_allow_html=True)
+                    st.caption("Note: This opens your email app so you can send the rating to the admin.")
 
     except Exception as e:
         st.error(f"⚠️ App Error: {e}")
