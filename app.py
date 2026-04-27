@@ -5,6 +5,7 @@ import os
 # --- PAGE CONFIG & CUSTOM STYLING ---
 st.set_page_config(page_title="Universal Menu Guide", page_icon="🎢", layout="centered")
 
+# Professional UI styling
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -29,7 +30,9 @@ st.markdown("""
 st.title("🎢 Universal Food & Photo Guide")
 st.markdown("---")
 
+# --- HELPER FUNCTIONS ---
 def get_stars(rating):
+    """Converts numeric rating string to star emojis."""
     try:
         r = float(rating)
         if r <= 0: return ""
@@ -42,22 +45,19 @@ def get_stars(rating):
 files = [f for f in os.listdir('.') if f.endswith('.csv')]
 
 if not files:
-    st.error("📂 No CSV file found!")
+    st.error("📂 No CSV file found in your GitHub repository!")
 else:
     target_file = files[0]
     try:
-        # Load data safely
+        # Load and clean data headers/content
         df = pd.read_csv(target_file, keep_default_na=False)
-        
-        # Clean all column names (removes hidden spaces)
         df.columns = [c.strip() for c in df.columns]
         
-        # Clean data cells
         for col in df.columns:
             df[col] = df[col].astype(str).str.strip()
             df[col] = df[col].replace(['nan', 'NaN', 'N/A', 'n/a', 'None', 'null'], '')
 
-        # Numeric Price for sorting
+        # Create numeric price for sorting
         if 'Price' in df.columns:
             df['numeric_price'] = (
                 df['Price'].str.replace('[\$,]', '', regex=True)
@@ -67,12 +67,11 @@ else:
         else:
             df['numeric_price'] = 0
 
-        # --- UI ---
-        query = st.text_input("🔍 What are you craving?", placeholder="Search items, restaurants, or parks...")
+        # --- SEARCH & FILTER UI ---
+        query = st.text_input("🔍 What are you craving?", placeholder="Search by item name (e.g. 'Egg', 'Taco', 'Burger')")
         
         c1, c2 = st.columns(2)
         with c1:
-            # Check if Park column exists
             if 'Park' in df.columns:
                 park_list = sorted([p for p in df['Park'].unique() if p])
                 selected_park = st.selectbox("📍 Filter by Park", ["All Parks"] + park_list)
@@ -81,45 +80,49 @@ else:
         with c2:
             sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Highest Rating"])
 
-        # FILTERING
+        # --- FILTERING LOGIC ---
         filtered = df.copy()
+        
+        # 1. Park Filter
         if selected_park != "All Parks" and 'Park' in filtered.columns:
             filtered = filtered[filtered['Park'] == selected_park]
         
+        # 2. Targeted Search (Fixes the "Egg" issue)
         if query:
             search_words = query.lower().split()
-            mask = filtered.apply(lambda row: all(word in str(row).lower() for word in search_words), axis=1)
+            # This line specifically checks the 'Item' column ONLY
+            mask = filtered['Item'].str.lower().apply(lambda x: all(word in str(x) for word in search_words))
             filtered = filtered[mask]
 
-        # SORTING
-        if sort_option == "Lowest Price" and 'numeric_price' in filtered.columns:
+        # 3. Sorting
+        if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
-        elif sort_option == "Highest Rating":
-            # Only sort by rating if the column actually exists
-            if 'Rating' in filtered.columns:
-                filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
-                filtered = filtered.sort_values(by='temp_rate', ascending=False)
+        elif sort_option == "Highest Rating" and 'Rating' in filtered.columns:
+            filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
+            filtered = filtered.sort_values(by='temp_rate', ascending=False)
 
         st.write(f"Found **{len(filtered)}** items matching your search.")
 
-        # --- DISPLAY ---
+        # --- DISPLAY RESULTS ---
         for index, row in filtered.iterrows():
             item_name = row.get('Item', 'Unknown Item')
             price = row.get('Price', '')
             rating_val = row.get('Rating', '')
             star_text = get_stars(rating_val)
             
+            # Header label for the expander
             label = f"{item_name}  |  {price} {star_text}"
             
             with st.expander(label):
-                # 1. Image
-                if 'Image_URL' in row and row['Image_URL'] != "":
+                # Photo Section
+                if 'Image_URL' in row and row['Image_URL'].strip() != "":
                     try:
+                        # Displays photo if URL is valid
                         st.image(row['Image_URL'], use_container_width=True)
                     except:
-                        st.caption("📷 Image link found but could not be loaded.")
+                        st.caption("📷 Photo link detected but could not be loaded.")
                 
-                # 2. Details
+                # Info Section
                 col_left, col_right = st.columns([2, 1])
                 with col_left:
                     st.markdown(f"🏠 **{row.get('Restaurant', 'N/A')}**")
@@ -130,19 +133,21 @@ else:
                     if park_name:
                         st.markdown(f'<span class="park-badge">{park_name}</span>', unsafe_allow_html=True)
                 
-                # 3. Rating & Photo submission
+                # Feedback Section
                 st.write("---")
-                user_rate = st.slider(f"Rate {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"s_{index}")
+                user_rate = st.slider(f"Your rating for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"s_{index}")
                 
-                admin_email = "YOUR_EMAIL@gmail.com" 
-                mailto_link = f"mailto:{admin_email}?subject=Review:{item_name}&body=Rating: {user_rate}/5. Attached is my photo!"
+                admin_email = "YOUR_EMAIL@gmail.com" # <--- Update this to your email
+                email_subject = f"Review for {item_name}"
+                email_body = f"Rating: {user_rate}/5 stars for {item_name} at {row.get('Restaurant')}. %0D%0A%0D%0A(Attach photo here!)"
+                mailto_link = f"mailto:{admin_email}?subject={email_subject}&body={email_body}"
                 
                 st.markdown(f'''
                     <a href="{mailto_link}" style="text-decoration:none;">
                         <div style="background: linear-gradient(90deg, #007bff 0%, #0056b3 100%); 
                         color: white; text-align: center; padding: 12px; border-radius: 8px; 
-                        font-weight: bold;">
-                            📸 Submit Photo & Rating
+                        font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            📧 Submit Rating & Attach Photo
                         </div>
                     </a>
                 ''', unsafe_allow_html=True)
