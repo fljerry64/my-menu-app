@@ -1,11 +1,10 @@
 import streamlit as st
-import pandas as pd
+import pd as pd
 import os
 
 st.set_page_config(page_title="Universal Menu", page_icon="🎢", layout="centered")
 st.title("🎢 Universal Menu Search")
 
-# 1. FIND FILE
 files = [f for f in os.listdir('.') if f.endswith('.csv')]
 
 if not files:
@@ -13,40 +12,39 @@ if not files:
 else:
     target_file = files[0]
     try:
-        # 2. LOAD AND CLEAN DATA
-        df = pd.read_csv(target_file)
-        # Convert all columns to strings and strip hidden whitespace
-        for col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+        df = pd.read_csv(target_file).fillna("")
         
-        # 3. SEARCH INTERFACE
-        query = st.text_input("🔍 Search for food (e.g. 'Burger', 'Pizza')").lower().strip()
+        # 1. SEARCH BOX (Now targeted to Item Name only)
+        query = st.text_input("🔍 Search for a menu item (e.g. 'Burger', 'Crepe')").lower().strip()
         
-        # 4. FILTERING LOGIC (Improved)
-        if query:
-            # Check if query exists in ANY of these columns
-            mask = (
-                df['Item'].str.lower().str.contains(query) | 
-                df['Restaurant'].str.lower().str.contains(query) | 
-                df['Details'].str.lower().str.contains(query)
-            )
-            filtered = df[mask]
-        else:
-            filtered = df.head(20) # Show first 20 if search is empty
+        # 2. PARK FILTER (Optional but helpful)
+        parks = ["All Parks"] + sorted(list(df['Park'].unique()))
+        selected_park = st.selectbox("📍 Filter by Park", parks)
 
-        # 5. DISPLAY
+        # 3. FILTERING LOGIC
+        filtered = df.copy()
+        
+        # Filter by Park first
+        if selected_park != "All Parks":
+            filtered = filtered[filtered['Park'] == selected_park]
+        
+        # Search ONLY in the 'Item' column
+        if query:
+            filtered = filtered[filtered['Item'].str.lower().str.contains(query)]
+
         st.divider()
         
+        # 4. DISPLAY RESULTS
         if len(filtered) == 0:
-            st.warning(f"No items found matching '{query}'.")
-            # Debug: show column names if search fails
-            st.write("Columns available:", list(df.columns))
+            st.warning(f"No menu items found matching '{query}'.")
         else:
-            st.write(f"Showing {len(filtered)} results:")
+            st.write(f"Showing {len(filtered)} items:")
             for index, row in filtered.iterrows():
-                with st.expander(f"**{row['Item']}** — {row['Price']}"):
-                    st.write(f"📍 **{row['Restaurant']}**")
-                    st.caption(f"Park: {row['Park']}")
+                # Display the Restaurant name in small text above the Item
+                label = f"**{row['Item']}** — {row['Price']}"
+                with st.expander(label):
+                    st.markdown(f"🏠 **Restaurant:** {row['Restaurant']}")
+                    st.markdown(f"🌍 **Park:** {row['Park']}")
                     if row['Details'] and row['Details'].lower() != "nan":
                         st.info(row['Details'])
 
