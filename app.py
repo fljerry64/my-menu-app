@@ -5,11 +5,31 @@ import os
 # 1. Page Configuration
 st.set_page_config(page_title="Universal Orlando Food Guide", layout="wide")
 
-# Custom CSS for a compact, no-scroll feel
+# Custom CSS for layout and permanent scrollbars
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-top: 0rem; font-size: 2rem !important; }
+    
+    /* Make the scrollbar permanently visible and more noticeable */
+    ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+        display: block;
+    }
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1; 
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #888; 
+        border-radius: 10px;
+        border: 2px solid #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555; 
+    }
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -69,10 +89,9 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 5. Display Data (Park and Restaurant columns removed)
+    # 5. Display Data
     if not filtered_df.empty:
         st.dataframe(
-            # Only displaying Item, Price, and Details columns
             filtered_df[['Item', 'Price', 'Details']], 
             use_container_width=True, 
             hide_index=True,
@@ -84,6 +103,6 @@ if not df.empty:
             }
         )
     else:
-        st.warning("No items found. Remember: Captain America Diner is in Islands of Adventure, not Universal Studios.")
+        st.warning("No items found matching those filters.")
 else:
     st.error("Could not find universal_food_data.csv.")
