@@ -5,7 +5,7 @@ import os
 # 1. Page Configuration
 st.set_page_config(page_title="Universal Orlando Food Guide", layout="wide")
 
-# 2. Custom CSS - Permanent RED scrollbar on the custom HTML container
+# 2. Custom CSS - Permanent RED scrollbar
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
@@ -30,12 +30,19 @@ def load_data():
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
         
-        # CLEANUP: Standardize Restaurant names to Title Case to prevent filter mismatches
+        # Standardize Restaurant names
         if 'Restaurant' in df.columns:
             df['Restaurant'] = df['Restaurant'].str.title()
             
+        # Clean Price column
         if 'Price' in df.columns:
             df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
+            
+        # Standardize Meal column values
+        if 'Meal' in df.columns:
+            # Grouping 'Dessert' and 'Other' for a cleaner UI
+            df['Meal'] = df['Meal'].replace({'Dessert': 'Other'})
+            
         return df
     return pd.DataFrame()
 
@@ -47,35 +54,32 @@ if not df.empty:
     # 4. Sidebar Filters
     st.sidebar.header("Filters")
     search_query = st.sidebar.text_input("Search", "")
+    
     parks = ["All"] + sorted(df['Park'].unique().tolist())
     selected_park = st.sidebar.selectbox("Park", parks)
     
-    # Now all restaurants will appear as "Today Cafe" instead of "TODAY CAFE"
     restaurants = ["All"] + sorted(df['Restaurant'].unique().tolist())
     selected_restaurant = st.sidebar.selectbox("Restaurant", restaurants)
     
-    meal_periods = ["All", "Breakfast", "Lunch/Dinner"]
-    selected_period = st.sidebar.selectbox("Meal Period", meal_periods)
+    # Using the exact categories from your CSV Meal column
+    meal_options = ["All", "Breakfast", "Lunch/Dinner", "Other"]
+    selected_period = st.sidebar.selectbox("Meal Period", meal_options)
 
     # 5. Filter Logic
     filtered_df = df.copy()
-    breakfast_keywords = 'Breakfast|Egg|Pancake|Waffle|Toast|Croissant|Oatmeal|Yogurt|Fruit'
 
     if search_query:
         filtered_df = filtered_df[filtered_df['Item'].str.contains(search_query, case=False, na=False)]
+    
     if selected_park != "All":
         filtered_df = filtered_df[filtered_df['Park'] == selected_park]
+    
     if selected_restaurant != "All":
         filtered_df = filtered_df[filtered_df['Restaurant'] == selected_restaurant]
 
-    if selected_period == "Breakfast":
-        mask = (filtered_df['Details'].str.contains(breakfast_keywords, case=False, na=False) | 
-                filtered_df['Item'].str.contains(breakfast_keywords, case=False, na=False))
-        filtered_df = filtered_df[mask]
-    elif selected_period == "Lunch/Dinner":
-        is_breakfast = (filtered_df['Details'].str.contains(breakfast_keywords, case=False, na=False) | 
-                        filtered_df['Item'].str.contains(breakfast_keywords, case=False, na=False))
-        filtered_df = filtered_df[~is_breakfast]
+    # DIRECT FILTER using the Meal column
+    if selected_period != "All":
+        filtered_df = filtered_df[filtered_df['Meal'] == selected_period]
 
     filtered_df = filtered_df.sort_values(by='Price')
 
@@ -83,6 +87,7 @@ if not df.empty:
     if not filtered_df.empty:
         display_df = filtered_df[['Item', 'Price', 'Details']].copy()
         display_df['Price'] = display_df['Price'].map('${:,.2f}'.format)
+        
         html_table = display_df.to_html(index=False, classes='styled-table')
         full_html = f'<div class="table-container">{html_table}</div>'
         st.markdown(full_html, unsafe_allow_html=True)
