@@ -5,16 +5,16 @@ import os
 # 1. Page Configuration
 st.set_page_config(page_title="Universal Orlando Food Guide", layout="wide")
 
-# Custom CSS for layout and permanent scrollbars
+# Custom CSS for layout and high-visibility RED scrollbars
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-top: 0rem; font-size: 2rem !important; }
     
-    /* Make the scrollbar permanently visible and more noticeable */
+    /* Permanent RED scrollbar for high visibility */
     ::-webkit-scrollbar {
-        width: 12px;
-        height: 12px;
+        width: 14px; /* Slightly wider for easier grabbing */
+        height: 14px;
         display: block;
     }
     ::-webkit-scrollbar-track {
@@ -22,12 +22,12 @@ st.markdown("""
         border-radius: 10px;
     }
     ::-webkit-scrollbar-thumb {
-        background: #888; 
+        background: #FF0000; /* Bright Red */
         border-radius: 10px;
         border: 2px solid #f1f1f1;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: #555; 
+        background: #B30000; /* Darker Red on hover */
     }
 
     #MainMenu {visibility: hidden;}
@@ -89,7 +89,7 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 5. Display Data
+    # 5. Display Data (Columns restricted for clean view)
     if not filtered_df.empty:
         st.dataframe(
             filtered_df[['Item', 'Price', 'Details']], 
