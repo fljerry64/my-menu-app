@@ -61,16 +61,24 @@ def load_data():
             df['Price'] = df['Price'].astype(str).str.replace('[\$,]', '', regex=True).str.strip()
             df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
             
-        # Category Correction (Beverages and Desserts)[cite: 1]
+        # Category Correction Logic[cite: 1]
         if 'Meal' in df.columns:
+            # Fix 1: Beverages
             bev_keywords = ['Water', 'Icee', 'Soda', 'Drink', 'Juice', 'Coffee', 'Tea', 
                             'Powerade', 'Milk', 'Coca-Cola', 'Cup', 'Refill']
             bev_pattern = '|'.join(bev_keywords)
             df.loc[df['Item'].str.contains(bev_pattern, case=False, na=False), 'Meal'] = 'Beverage'
             
+            # Fix 2: Snacks (Helps items like Fries show up at Burger Digs)[cite: 1]
+            snack_keywords = ['Fries', 'Onion Rings', 'Fruit', 'Chips', 'Tots']
+            snack_pattern = '|'.join(snack_keywords)
+            df.loc[df['Item'].str.contains(snack_pattern, case=False, na=False), 'Meal'] = 'Snack'
+
+            # Fix 3: Desserts (Updated to ignore Pancakes)[cite: 1]
             dessert_keywords = ['Cake', 'Cookie', 'Brownie', 'Pie', 'Churro', 'Pastry', 'Sweet']
             dess_pattern = '|'.join(dessert_keywords)
             df.loc[(df['Item'].str.contains(dess_pattern, case=False, na=False)) & 
+                   (~df['Item'].str.contains('Pancake', case=False, na=False)) & 
                    (~df['Meal'].isin(['Breakfast', 'Lunch/Dinner'])), 'Meal'] = 'Dessert'
             
         return df
