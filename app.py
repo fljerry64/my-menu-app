@@ -9,7 +9,6 @@ def load_data():
     file_path = 'universal_food_data.csv'
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
-        # Remove '$' and convert Price to a number so we can sort it
         if 'Price' in df.columns:
             df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
         return df
@@ -20,19 +19,17 @@ df = load_data()
 st.title("🍔 Universal Orlando Food Guide")
 
 if not df.empty:
-    # --- SIDEBAR FILTERS ---
     st.sidebar.header("Filters")
     
-    # Search by Item Name
     search_query = st.sidebar.text_input("Search for food items", "")
 
-    # Filter by Park
+    # Park Filter
     parks = ["All"] + sorted(df['Park'].unique().tolist())
     selected_park = st.sidebar.selectbox("Select Park", parks)
 
-    # Filter by Restaurant (New based on your CSV)
-    restaurants = ["All"] + sorted(df['Restaurant'].unique().tolist())
-    selected_restaurant = st.sidebar.selectbox("Select Restaurant", restaurants)
+    # NEW: Meal Period Filter (scans the 'Details' column)
+    meal_periods = ["All", "Breakfast", "Lunch", "Dinner"]
+    selected_period = st.sidebar.selectbox("Select Meal Period", meal_periods)
 
     # --- FILTER LOGIC ---
     filtered_df = df.copy()
@@ -43,10 +40,10 @@ if not df.empty:
     if selected_park != "All":
         filtered_df = filtered_df[filtered_df['Park'] == selected_park]
 
-    if selected_restaurant != "All":
-        filtered_df = filtered_df[filtered_df['Restaurant'] == selected_restaurant]
+    # Logical scan for Breakfast/Lunch/Dinner keywords in 'Details'
+    if selected_period != "All":
+        filtered_df = filtered_df[filtered_df['Details'].str.contains(selected_period, case=False, na=False)]
 
-    # Sort by Price (Low to High)
     filtered_df = filtered_df.sort_values(by='Price')
 
     # --- DISPLAY ---
@@ -56,4 +53,4 @@ if not df.empty:
         hide_index=True
     )
 else:
-    st.error("Could not find universal_food_data.csv. Please ensure it is in the main folder on GitHub.")
+    st.error("Could not find universal_food_data.csv.")
