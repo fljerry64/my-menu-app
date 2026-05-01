@@ -8,64 +8,40 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Custom CSS - Permanent RED scrollbar + Optimized Header
+# 2. Custom CSS - Permanent RED scrollbar
 st.markdown("""
     <style>
-    /* Reduce padding for a tighter mobile look */
+    /* Reduce padding for a tighter look */
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-bottom: 0.5rem; font-size: 1.8rem !important; }
 
-    /* The container for the HTML table */
-    .table-container {
-        height: 600px;
-        overflow-y: scroll !important;
-        overflow-x: auto !important;
-        border: 1px solid #ddd;
-        margin-top: 10px;
+    /* FORCED RED SCROLLBAR for the main page */
+    ::-webkit-scrollbar {
+        width: 14px !important;
     }
-
-    /* FORCED RED SCROLLBAR */
-    .table-container::-webkit-scrollbar {
-        width: 18px !important;
-        display: block !important;
-    }
-    .table-container::-webkit-scrollbar-track {
+    ::-webkit-scrollbar-track {
         background: #f1f1f1 !important;
     }
-    .table-container::-webkit-scrollbar-thumb {
+    ::-webkit-scrollbar-thumb {
         background: #FF0000 !important;
         border-radius: 5px !important;
     }
-    
-    /* Styled HTML table */
-    .styled-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: sans-serif;
-        font-size: 0.9rem;
-    }
-    .styled-table thead tr {
-        background-color: #f0f2f6;
-        text-align: left;
-    }
-    .styled-table th, .styled-table td {
-        padding: 10px 8px;
-        border-bottom: 1px solid #ddd;
-    }
-    .styled-table tbody tr:nth-of-type(even) {
-        background-color: #f9f9f9;
-    }
 
-    /* Hide standard Streamlit header/footer */
-    #MainMenu, footer, header {visibility: hidden;}
-    
-    /* Make the filter container look distinct */
-    .filter-box {
-        background-color: #f8f9fb;
+    /* Styling for the custom 'Table' header */
+    .header-row {
+        display: flex;
+        background-color: #f0f2f6;
         padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 15px;
+        font-weight: bold;
+        border-bottom: 2px solid #ddd;
+        margin-bottom: 10px;
+        border-radius: 5px;
     }
+    .col-item { flex: 3; }
+    .col-price { flex: 1; text-align: right; }
+
+    /* Hide standard Streamlit elements */
+    #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -84,19 +60,17 @@ def load_data():
         if 'Price' in df.columns:
             df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
             
-        # ADVANCED DATA CORRECTION[cite: 1]
+        # ADVANCED DATA CORRECTION
         if 'Meal' in df.columns:
-            # Fix 1: Catch all beverages and Coca-Cola cups mislabeled in the CSV
+            # Fix 1: Catch beverages and Coca-Cola cups mislabeled in the CSV
             bev_keywords = ['Water', 'Icee', 'Soda', 'Drink', 'Juice', 'Coffee', 'Tea', 
                             'Powerade', 'Milk', 'Coca-Cola', 'Cup', 'Refill']
             bev_pattern = '|'.join(bev_keywords)
             df.loc[df['Item'].str.contains(bev_pattern, case=False, na=False), 'Meal'] = 'Beverage'
             
-            # Fix 2: Ensure "Dessert-like" items (Cookies, Cakes, etc.) appear under Dessert
+            # Fix 2: Ensure "Dessert-like" items appear under Dessert
             dessert_keywords = ['Cake', 'Cookie', 'Brownie', 'Pie', 'Churro', 'Pastry', 'Sweet']
             dess_pattern = '|'.join(dessert_keywords)
-            
-            # Move them to Dessert if they aren't already Breakfast or Lunch/Dinner
             df.loc[(df['Item'].str.contains(dess_pattern, case=False, na=False)) & 
                    (~df['Meal'].isin(['Breakfast', 'Lunch/Dinner'])), 'Meal'] = 'Dessert'
             
@@ -124,7 +98,6 @@ if not df.empty:
         selected_restaurant = st.selectbox("Restaurant", restaurants)
     
     with col4:
-        # Added the requested Meal Period options[cite: 1]
         meal_options = ["All", "Breakfast", "Lunch/Dinner", "Beverage", "Dessert", "Snack", "Other"]
         selected_period = st.selectbox("Meal Period", meal_options)
 
@@ -142,14 +115,26 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 6. Display Data
+    # 6. Display Data using Expanders for Details
     if not filtered_df.empty:
-        display_df = filtered_df[['Item', 'Price', 'Details']].copy()
-        display_df['Price'] = display_df['Price'].map('${:,.2f}'.format)
-        
-        html_table = display_df.to_html(index=False, classes='styled-table')
-        full_html = f'<div class="table-container">{html_table}</div>'
-        st.markdown(full_html, unsafe_allow_html=True)
+        # Custom Header for visual structure
+        st.markdown(f'''
+            <div class="header-row">
+                <div class="col-item">Item</div>
+                <div class="col-price">Price</div>
+            </div>
+        ''', unsafe_allow_html=True)
+
+        for index, row in filtered_df.iterrows():
+            # Format price and create a clean label
+            price_str = f"${row['Price']:,.2f}"
+            # The label is what the user clicks on
+            label = f"{row['Item']} — {price_str}"
+            
+            with st.expander(label):
+                # Hidden content revealed upon click
+                st.write(f"**Details:** {row['Details'] if pd.notna(row['Details']) else 'No details available.'}")
+                st.caption(f"Location: {row['Restaurant']} | Park: {row['Park']}")
     else:
         st.warning("No items found matching those filters.")
 else:
