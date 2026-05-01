@@ -5,35 +5,48 @@ import os
 # 1. Page Configuration
 st.set_page_config(page_title="Universal Orlando Food Guide", layout="wide")
 
-# 2. Custom CSS - This creates a scrollable area with a FORCED RED SCROLLBAR
+# 2. Custom CSS - This forces a high-visibility RED scrollbar on the custom HTML container
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-top: 0rem; font-size: 2rem !important; }
 
-    /* This targets the custom 'scroll-container' we create below */
-    .scroll-container {
+    /* The container for the HTML table */
+    .table-container {
         height: 650px;
         overflow-y: scroll !important;
         border: 1px solid #ddd;
-        padding-right: 5px;
     }
 
-    /* FORCED RED SCROLLBAR logic for the container */
-    .scroll-container::-webkit-scrollbar {
-        width: 16px !important;
+    /* FORCED RED SCROLLBAR */
+    .table-container::-webkit-scrollbar {
+        width: 18px !important;
         display: block !important;
     }
-    .scroll-container::-webkit-scrollbar-track {
+    .table-container::-webkit-scrollbar-track {
         background: #f1f1f1 !important;
     }
-    .scroll-container::-webkit-scrollbar-thumb {
-        background: #FF0000 !important; /* BRIGHT RED */
-        border-radius: 10px !important;
-        border: 2px solid #f1f1f1 !important;
+    .table-container::-webkit-scrollbar-thumb {
+        background: #FF0000 !important; /* RED */
+        border-radius: 5px !important;
     }
-    .scroll-container::-webkit-scrollbar-thumb:hover {
-        background: #CC0000 !important;
+    
+    /* Style for the HTML table itself to make it look like a Streamlit table */
+    .styled-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+    }
+    .styled-table thead tr {
+        background-color: #f0f2f6;
+        text-align: left;
+    }
+    .styled-table th, .styled-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+    }
+    .styled-table tbody tr:nth-of-type(even) {
+        background-color: #f9f9f9;
     }
 
     #MainMenu, footer, header {visibility: hidden;}
@@ -88,16 +101,19 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 6. Display Data using a Custom Scrollable HTML Div
+    # 6. Display Data as Styled HTML Table
     if not filtered_df.empty:
-        # Format the price column for the table
+        # Prepare the display dataframe
         display_df = filtered_df[['Item', 'Price', 'Details']].copy()
         display_df['Price'] = display_df['Price'].map('${:,.2f}'.format)
         
-        # We wrap the table in a div with the class 'scroll-container'
-        st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
-        st.table(display_df)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Convert to HTML
+        html_table = display_df.to_html(index=False, classes='styled-table')
+        
+        # Wrap the HTML in our scroll-container div
+        full_html = f'<div class="table-container">{html_table}</div>'
+        
+        st.markdown(full_html, unsafe_allow_html=True)
     else:
         st.warning("No items found matching those filters.")
 else:
