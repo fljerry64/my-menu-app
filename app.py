@@ -83,10 +83,13 @@ def load_data():
         if 'Price' in df.columns:
             df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
             
-        # Clean up Meal Period inconsistencies (ensuring Beverages aren't tagged as Desserts)
+        # GLOBAL BEVERAGE FIX: Re-categorize items mislabeled in the CSV[cite: 1]
         if 'Meal' in df.columns:
-            beverage_list = ['Powerade', 'Minute Maid Juice', 'Hot Drinks', 'Single Serve Coca-Cola Freestyle® cup']
-            df.loc[df['Item'].isin(beverage_list), 'Meal'] = 'Beverage'
+            bev_keywords = ['Water', 'Icee', 'Soda', 'Drink', 'Juice', 'Coffee', 'Tea', 'Powerade', 'Milk']
+            pattern = '|'.join(bev_keywords)
+            
+            # Identify keywords in the 'Item' column and force them to 'Beverage'[cite: 1]
+            df.loc[df['Item'].str.contains(pattern, case=False, na=False), 'Meal'] = 'Beverage'
             
         return df
     return pd.DataFrame()
@@ -96,7 +99,7 @@ df = load_data()
 st.title("🍔 Universal Orlando Food Guide")
 
 if not df.empty:
-    # 4. Top-Screen Filters
+    # 4. Top-Screen Filters (No Sidebar)
     col1, col2 = st.columns(2)
     col3, col4 = st.columns(2)
 
@@ -112,7 +115,7 @@ if not df.empty:
         selected_restaurant = st.selectbox("Restaurant", restaurants)
     
     with col4:
-        # Added Beverage, Dessert, and Snack options
+        # Added Beverage, Dessert, and Snack options[cite: 1]
         meal_options = ["All", "Breakfast", "Lunch/Dinner", "Beverage", "Dessert", "Snack", "Other"]
         selected_period = st.selectbox("Meal Period", meal_options)
 
