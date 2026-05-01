@@ -1,66 +1,75 @@
-import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+import streamlit as st
 import pandas as pd
+import os
 
-app = Flask(__name__)
-app.secret_key = 'supersecretkey'
+# Page Configuration
+st.set_page_config(page_title="Universal Food Guide", layout="wide")
 
-# Configuration for photo uploads
-UPLOAD_FOLDER = 'static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Load Data
+@st.cache_data
+def load_data():
+    if os.path.exists('universal_food_data.csv'):
+        return pd.read_csv('universal_food_data.csv')
+    return pd.DataFrame(columns=['name', 'park', 'meal_type', 'price', 'rating'])
 
-# Load the data - assuming a CSV structure for the guide
-DATA_FILE = 'universal_food_data.csv'
+df = load_data()
 
-def get_data():
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
-    return pd.DataFrame(columns=['id', 'name', 'park', 'meal_type', 'price', 'rating', 'image_path'])
+st.title("🍔 Universal Orlando Food Guide")
+st.write("Find the best eats and track your favorites.")
 
-@app.route('/')
-def index():
-    df = get_data()
+# --- SIDEBAR FILTERS ---
+st.sidebar.header("Filters")
+search_query = st.sidebar.text_input("Search for food or restaurant", "")
+
+# Use unique values from the CSV for filters
+parks = ["All"] + sorted(df['park'].unique().tolist())
+selected_park = st.sidebar.selectbox("Select Park", parks)
+
+meals = ["All"] + sorted(df['meal_type'].unique().tolist())
+selected_meal = st.sidebar.selectbox("Meal Type", meals)
+
+# --- FILTER LOGIC ---
+filtered_df = df.copy()
+
+if search_query:
+    filtered_df = filtered_df[filtered_df['name'].str.contains(search_query, case=False)]
+
+if selected_park != "All":
+    filtered_df = filtered_df[filtered_df['park'] == selected_park]
+
+if selected_meal != "All":
+    filtered_df = filtered_df[filtered_df['meal_type'] == selected_meal]
+
+# Sort by price by default for value tracking
+filtered_df = filtered_df.sort_values(by='price')
+
+# --- MAIN DISPLAY ---
+if not filtered_df.empty:
+    # Display results in a nice table or grid
+    st.dataframe(filtered_df, use_container_width=True, hide_index=True)
     
-    # Get filter parameters
-    search_query = request.args.get('search', '').lower()
-    park_filter = request.args.get('park', '')
-    meal_filter = request.args.get('meal_type', '')
+    # Optional: Visual Cards
+    st.divider()
+    cols = st.columns(2)
+    for index, row in filtered_df.iterrows():
+        with cols[index % 2]:
+            st.subheader(row['name'])
+            st.caption(f"📍 {row['park']} | 🍴 {row['meal_type']}")
+            st.write(f"**Price:** ${row['price']:.2f} | **Rating:** {row['rating']} ⭐")
+else:
+    st.warning("No food items found matching those filters.")
 
-    # Apply Filters
-    if search_query:
-        df = df[df['name'].str.lower().str.contains(search_query)]
-    if park_filter:
-        df = df[df['park'] == park_filter]
-    if meal_filter:
-        df = df[df['meal_type'] == meal_filter]
-
-    # Automatic price sorting (Low to High)
-    df = df.sort_values(by='price')
-
-    items = df.to_dict('records')
-    return render_template('index.html', items=items)
-
-@app.route('/submit_review', methods=['POST'])
-def submit_review():
-    name = request.form.get('item_name')
-    rating = request.form.get('rating')
-    file = request.files.get('photo')
+# --- FEEDBACK SECTION ---
+st.divider()
+st.subheader("📸 Submit a Review")
+with st.form("review_form", clear_on_submit=True):
+    food_name = st.selectbox("Which item did you try?", df['name'].tolist())
+    user_rating = st.slider("Rating", 1, 5, 5)
+    uploaded_photo = st.file_uploader("Upload a photo", type=['png', 'jpg', 'jpeg'])
+    submitted = st.form_submit_button("Submit Feedback")
     
-    # Handle photo upload
-    image_path = ""
-    if file:
-        filename = f"{name.replace(' ', '_')}_{file.filename}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        image_path = f"uploads/{filename}"
-
-    # Email-based feedback logic (simulated via log/flash)
-    # In a production environment, use Flask-Mail here
-    print(f"Feedback Received: {name} - Rating: {rating} - Image: {image_path}")
-    
-    flash('Thank you for your rating and photo!')
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-    app.run(debug=True)
+    if submitted:
+        # In Streamlit, we can display success immediately
+        st.success(f"Thank you for rating the {food_name}!")
+        if uploaded_photo:
+            st.image(uploaded_photo, caption="Your uploaded photo", width=200)
