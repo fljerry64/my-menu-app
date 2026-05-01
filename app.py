@@ -11,7 +11,6 @@ st.set_page_config(
 # 2. Custom CSS - Permanent RED scrollbar
 st.markdown("""
     <style>
-    /* Reduce padding for a tighter look */
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-bottom: 0.5rem; font-size: 1.8rem !important; }
 
@@ -40,7 +39,6 @@ st.markdown("""
     .col-item { flex: 3; }
     .col-price { flex: 1; text-align: right; }
 
-    /* Hide standard Streamlit elements */
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
@@ -88,15 +86,12 @@ if not df.empty:
 
     with col1:
         search_query = st.text_input("🔍 Search Item", "")
-    
     with col2:
         parks = ["All"] + sorted(df['Park'].unique().tolist())
         selected_park = st.selectbox("Park", parks)
-    
     with col3:
         restaurants = ["All"] + sorted(df['Restaurant'].unique().tolist())
         selected_restaurant = st.selectbox("Restaurant", restaurants)
-    
     with col4:
         meal_options = ["All", "Breakfast", "Lunch/Dinner", "Beverage", "Dessert", "Snack", "Other"]
         selected_period = st.selectbox("Meal Period", meal_options)
@@ -115,26 +110,23 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 6. Display Data using Expanders for Details
+    # 6. Display Data using Expanders
     if not filtered_df.empty:
-        # Custom Header for visual structure
         st.markdown(f'''
             <div class="header-row">
-                <div class="col-item">Item</div>
+                <div class="col-item">Item (Restaurant)</div>
                 <div class="col-price">Price</div>
             </div>
         ''', unsafe_allow_html=True)
 
         for index, row in filtered_df.iterrows():
-            # Format price and create a clean label
             price_str = f"${row['Price']:,.2f}"
-            # The label is what the user clicks on
-            label = f"{row['Item']} — {price_str}"
+            # Added Restaurant Name to the label here[cite: 1]
+            label = f"{row['Item']} ({row['Restaurant']}) — {price_str}"
             
             with st.expander(label):
-                # Hidden content revealed upon click
                 st.write(f"**Details:** {row['Details'] if pd.notna(row['Details']) else 'No details available.'}")
-                st.caption(f"Location: {row['Restaurant']} | Park: {row['Park']}")
+                st.caption(f"Park: {row['Park']}")
     else:
         st.warning("No items found matching those filters.")
 else:
