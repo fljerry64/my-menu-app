@@ -47,7 +47,8 @@ files = [f for f in os.listdir('.') if f.endswith('.csv')]
 if not files:
     st.error("📂 No CSV file found in your GitHub repository!")
 else:
-    target_file = files[0]
+    # Use the latest version of your menu file
+    target_file = "Universal_Master_Menu.csv" if "Universal_Master_Menu.csv" in files else files[0]
     try:
         # Load and clean data headers/content
         df = pd.read_csv(target_file, keep_default_na=False)
@@ -78,7 +79,8 @@ else:
             else:
                 selected_park = "All Parks"
         with c2:
-            sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Highest Rating"])
+            # ADDED: "Breakfast First" to the sort options
+            sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Breakfast First", "Highest Rating"])
 
         # --- FILTERING LOGIC ---
         filtered = df.copy()
@@ -87,16 +89,24 @@ else:
         if selected_park != "All Parks" and 'Park' in filtered.columns:
             filtered = filtered[filtered['Park'] == selected_park]
         
-        # 2. Targeted Search (Fixes the "Egg" issue)
+        # 2. Targeted Search
         if query:
             search_words = query.lower().split()
-            # This line specifically checks the 'Item' column ONLY
             mask = filtered['Item'].str.lower().apply(lambda x: all(word in str(x) for word in search_words))
             filtered = filtered[mask]
 
         # 3. Sorting
         if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
+        
+        # ADDED: Logic for Breakfast sorting
+        elif sort_option == "Breakfast First":
+            if 'Meal' in filtered.columns:
+                # This puts 'Breakfast' at the top, then everything else alphabetically
+                filtered = filtered.sort_values(by=['Meal', 'Item'], ascending=[True, True])
+            else:
+                st.warning("⚠️ 'Meal' column not found in CSV. Please update your data file.")
+
         elif sort_option == "Highest Rating" and 'Rating' in filtered.columns:
             filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
             filtered = filtered.sort_values(by='temp_rate', ascending=False)
@@ -110,34 +120,33 @@ else:
             rating_val = row.get('Rating', '')
             star_text = get_stars(rating_val)
             
-            # Header label for the expander
             label = f"{item_name}  |  {price} {star_text}"
             
             with st.expander(label):
-                # Photo Section
                 if 'Image_URL' in row and row['Image_URL'].strip() != "":
                     try:
-                        # Displays photo if URL is valid
                         st.image(row['Image_URL'], use_container_width=True)
                     except:
                         st.caption("📷 Photo link detected but could not be loaded.")
                 
-                # Info Section
                 col_left, col_right = st.columns([2, 1])
                 with col_left:
                     st.markdown(f"🏠 **{row.get('Restaurant', 'N/A')}**")
                     if row.get('Details'):
                         st.info(row['Details'])
+                    # Optional: Display the meal type if available
+                    if row.get('Meal') and row['Meal'] != 'Uncategorized':
+                        st.write(f"🍴 **Category:** {row['Meal']}")
+
                 with col_right:
                     park_name = row.get('Park', '')
                     if park_name:
                         st.markdown(f'<span class="park-badge">{park_name}</span>', unsafe_allow_html=True)
                 
-                # Feedback Section
                 st.write("---")
                 user_rate = st.slider(f"Your rating for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"s_{index}")
                 
-                admin_email = "YOUR_EMAIL@gmail.com" # <--- Update this to your email
+                admin_email = "YOUR_EMAIL@gmail.com"
                 email_subject = f"Review for {item_name}"
                 email_body = f"Rating: {user_rate}/5 stars for {item_name} at {row.get('Restaurant')}. %0D%0A%0D%0A(Attach photo here!)"
                 mailto_link = f"mailto:{admin_email}?subject={email_subject}&body={email_body}"
