@@ -79,8 +79,7 @@ def load_data():
             df['Restaurant'] = df['Restaurant'].str.title()
         if 'Price' in df.columns:
             df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
-        if 'Meal' in df.columns:
-            df['Meal'] = df['Meal'].replace({'Dessert': 'Other'})
+        # Removed the logic that replaced 'Dessert' with 'Other' to keep categories distinct
         return df
     return pd.DataFrame()
 
@@ -90,7 +89,6 @@ st.title("🍔 Universal Orlando Food Guide")
 
 if not df.empty:
     # 4. Top-Screen Filters (No Sidebar)
-    # Using columns ensures they stay side-by-side on desktop but stack on mobile
     col1, col2 = st.columns(2)
     col3, col4 = st.columns(2)
 
@@ -106,7 +104,8 @@ if not df.empty:
         selected_restaurant = st.selectbox("Restaurant", restaurants)
     
     with col4:
-        meal_options = ["All", "Breakfast", "Lunch/Dinner", "Other"]
+        # Updated meal options to include Beverage, Dessert, and Snack
+        meal_options = ["All", "Breakfast", "Lunch/Dinner", "Beverage", "Dessert", "Snack", "Other"]
         selected_period = st.selectbox("Meal Period", meal_options)
 
     # 5. Filter Logic
