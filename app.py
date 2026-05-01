@@ -47,7 +47,6 @@ st.markdown("""
 # 3. Data Loading & Cleaning
 @st.cache_data
 def load_data():
-    # Set to the standard filename recognized by the system[cite: 1]
     file_path = 'universal_food_data.csv' 
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
@@ -56,30 +55,31 @@ def load_data():
         if 'Restaurant' in df.columns:
             df['Restaurant'] = df['Restaurant'].str.title()
         
-        # Robust Price Cleaning[cite: 1]
+        # Robust Price Cleaning
         if 'Price' in df.columns:
             df['Price'] = df['Price'].astype(str).str.replace('[\$,]', '', regex=True).str.strip()
             df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
             
-        # Category Correction Logic[cite: 1]
+        # Category Correction Logic
         if 'Meal' in df.columns:
-            # Fix 1: Beverages
+            # 1. PROTECT EXISTING MEALS: Identify items already set as main meals
+            main_meals = ['Breakfast', 'Lunch/Dinner']
+            is_not_main = ~df['Meal'].isin(main_meals)
+
+            # 2. Fix Beverages
             bev_keywords = ['Water', 'Icee', 'Soda', 'Drink', 'Juice', 'Coffee', 'Tea', 
                             'Powerade', 'Milk', 'Coca-Cola', 'Cup', 'Refill']
-            bev_pattern = '|'.join(bev_keywords)
-            df.loc[df['Item'].str.contains(bev_pattern, case=False, na=False), 'Meal'] = 'Beverage'
+            df.loc[is_not_main & df['Item'].str.contains('|'.join(bev_keywords), case=False, na=False), 'Meal'] = 'Beverage'
             
-            # Fix 2: Snacks (Helps items like Fries show up at Burger Digs)[cite: 1]
+            # 3. Fix Snacks (Helps items like Fries at Burger Digs)
             snack_keywords = ['Fries', 'Onion Rings', 'Fruit', 'Chips', 'Tots']
-            snack_pattern = '|'.join(snack_keywords)
-            df.loc[df['Item'].str.contains(snack_pattern, case=False, na=False), 'Meal'] = 'Snack'
+            df.loc[is_not_main & df['Item'].str.contains('|'.join(snack_keywords), case=False, na=False), 'Meal'] = 'Snack'
 
-            # Fix 3: Desserts (Updated to ignore Pancakes)[cite: 1]
+            # 4. Fix Desserts (With Pancake protection)
             dessert_keywords = ['Cake', 'Cookie', 'Brownie', 'Pie', 'Churro', 'Pastry', 'Sweet']
-            dess_pattern = '|'.join(dessert_keywords)
-            df.loc[(df['Item'].str.contains(dess_pattern, case=False, na=False)) & 
-                   (~df['Item'].str.contains('Pancake', case=False, na=False)) & 
-                   (~df['Meal'].isin(['Breakfast', 'Lunch/Dinner'])), 'Meal'] = 'Dessert'
+            df.loc[is_not_main & 
+                   df['Item'].str.contains('|'.join(dessert_keywords), case=False, na=False) & 
+                   (~df['Item'].str.contains('Pancake', case=False, na=False)), 'Meal'] = 'Dessert'
             
         return df
     return pd.DataFrame()
@@ -119,7 +119,7 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 6. Display Results[cite: 1]
+    # 6. Display Results
     if not filtered_df.empty:
         st.markdown(f'''
             <div class="header-row">
@@ -129,17 +129,14 @@ if not df.empty:
         ''', unsafe_allow_html=True)
 
         for index, row in filtered_df.iterrows():
-            # Handle empty prices[cite: 1]
             if pd.isna(row['Price']):
                 price_str = "Price TBD"
             else:
                 price_str = f"${row['Price']:,.2f}"
             
-            # Label includes Restaurant Name after the item[cite: 1]
             label = f"{row['Item']} ({row['Restaurant']}) — {price_str}"
             
             with st.expander(label):
-                # Displays item details or fallback text[cite: 1]
                 st.write(f"**Details:** {row['Details'] if pd.notna(row['Details']) else 'No details available.'}")
                 st.caption(f"Park: {row['Park']}")
     else:
