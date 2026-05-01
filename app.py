@@ -1,44 +1,46 @@
 import streamlit as st
 import pandas as pd
 import os
-import streamlit.components.v1 as components
 
 # 1. Page Configuration
 st.set_page_config(page_title="Universal Orlando Food Guide", layout="wide")
 
-# Custom CSS with a special injection for the table scrollbar
+# 2. Custom CSS - This creates a scrollable area with a FORCED RED SCROLLBAR
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
     h1 { margin-top: 0rem; font-size: 2rem !important; }
-    
-    /* 1. Global scrollbar (the main page) */
-    ::-webkit-scrollbar { width: 14px; height: 14px; display: block; }
-    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb { background: #FF0000 !important; border-radius: 10px; border: 2px solid #f1f1f1; }
 
-    /* 2. Target the Streamlit Dataframe specifically */
-    [data-testid="stDataFrame"] > div:first-child {
-        scrollbar-color: #FF0000 #f1f1f1 !important;
-        scrollbar-width: thick !important;
+    /* This targets the custom 'scroll-container' we create below */
+    .scroll-container {
+        height: 650px;
+        overflow-y: scroll !important;
+        border: 1px solid #ddd;
+        padding-right: 5px;
     }
 
-    /* 3. Aggressive injection for Webkit browsers (Chrome/Safari) inside the table */
-    [data-testid="stDataFrame"] ::-webkit-scrollbar {
-        width: 14px !important;
-        height: 14px !important;
+    /* FORCED RED SCROLLBAR logic for the container */
+    .scroll-container::-webkit-scrollbar {
+        width: 16px !important;
         display: block !important;
     }
-    [data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
-        background-color: #FF0000 !important;
+    .scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
+    }
+    .scroll-container::-webkit-scrollbar-thumb {
+        background: #FF0000 !important; /* BRIGHT RED */
         border-radius: 10px !important;
+        border: 2px solid #f1f1f1 !important;
+    }
+    .scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #CC0000 !important;
     }
 
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Data Loading Function
+# 3. Data Loading
 @st.cache_data
 def load_data():
     file_path = 'universal_food_data.csv'
@@ -54,7 +56,7 @@ df = load_data()
 st.title("🍔 Universal Orlando Food Guide")
 
 if not df.empty:
-    # 3. Sidebar Filters
+    # 4. Sidebar Filters
     st.sidebar.header("Filters")
     search_query = st.sidebar.text_input("Search", "")
     parks = ["All"] + sorted(df['Park'].unique().tolist())
@@ -64,7 +66,7 @@ if not df.empty:
     meal_periods = ["All", "Breakfast", "Lunch/Dinner"]
     selected_period = st.sidebar.selectbox("Meal Period", meal_periods)
 
-    # 4. Filter Logic
+    # 5. Filter Logic
     filtered_df = df.copy()
     breakfast_keywords = 'Breakfast|Egg|Pancake|Waffle|Toast|Croissant|Oatmeal|Yogurt|Fruit'
 
@@ -86,19 +88,16 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 5. Display Data
+    # 6. Display Data using a Custom Scrollable HTML Div
     if not filtered_df.empty:
-        st.dataframe(
-            filtered_df[['Item', 'Price', 'Details']], 
-            use_container_width=True, 
-            hide_index=True,
-            height=650, 
-            column_config={
-                "Item": st.column_config.TextColumn("Item", width="medium"),
-                "Price": st.column_config.NumberColumn("Price", format="$%.2f", width="small"),
-                "Details": st.column_config.TextColumn("Details", width="large")
-            }
-        )
+        # Format the price column for the table
+        display_df = filtered_df[['Item', 'Price', 'Details']].copy()
+        display_df['Price'] = display_df['Price'].map('${:,.2f}'.format)
+        
+        # We wrap the table in a div with the class 'scroll-container'
+        st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
+        st.table(display_df)
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.warning("No items found matching those filters.")
 else:
