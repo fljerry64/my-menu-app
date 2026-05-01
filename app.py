@@ -47,7 +47,7 @@ files = [f for f in os.listdir('.') if f.endswith('.csv')]
 if not files:
     st.error("📂 No CSV file found in your GitHub repository!")
 else:
-    # Use the latest version of your menu file
+    # Prioritizes your master menu file
     target_file = "Universal_Master_Menu.csv" if "Universal_Master_Menu.csv" in files else files[0]
     try:
         # Load and clean data headers/content
@@ -71,16 +71,24 @@ else:
         # --- SEARCH & FILTER UI ---
         query = st.text_input("🔍 What are you craving?", placeholder="Search by item name (e.g. 'Egg', 'Taco', 'Burger')")
         
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         with c1:
             if 'Park' in df.columns:
                 park_list = sorted([p for p in df['Park'].unique() if p])
                 selected_park = st.selectbox("📍 Filter by Park", ["All Parks"] + park_list)
             else:
                 selected_park = "All Parks"
+        
         with c2:
-            # ADDED: "Breakfast First" to the sort options
-            sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Breakfast First", "Highest Rating"])
+            # Filter by Meal Type (Only shows items tagged as Breakfast)
+            if 'Meal' in df.columns:
+                meal_types = ["All Meals", "Breakfast"]
+                selected_meal = st.selectbox("🍴 Filter by Meal", meal_types)
+            else:
+                selected_meal = "All Meals"
+
+        with c3:
+            sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Highest Rating"])
 
         # --- FILTERING LOGIC ---
         filtered = df.copy()
@@ -88,25 +96,20 @@ else:
         # 1. Park Filter
         if selected_park != "All Parks" and 'Park' in filtered.columns:
             filtered = filtered[filtered['Park'] == selected_park]
+
+        # 2. Meal Filter (Strictly limits results to Breakfast)
+        if selected_meal == "Breakfast" and 'Meal' in filtered.columns:
+            filtered = filtered[filtered['Meal'] == 'Breakfast']
         
-        # 2. Targeted Search
+        # 3. Targeted Search
         if query:
             search_words = query.lower().split()
             mask = filtered['Item'].str.lower().apply(lambda x: all(word in str(x) for word in search_words))
             filtered = filtered[mask]
 
-        # 3. Sorting
+        # 4. Sorting
         if sort_option == "Lowest Price":
             filtered = filtered.sort_values(by='numeric_price', ascending=True)
-        
-        # ADDED: Logic for Breakfast sorting
-        elif sort_option == "Breakfast First":
-            if 'Meal' in filtered.columns:
-                # This puts 'Breakfast' at the top, then everything else alphabetically
-                filtered = filtered.sort_values(by=['Meal', 'Item'], ascending=[True, True])
-            else:
-                st.warning("⚠️ 'Meal' column not found in CSV. Please update your data file.")
-
         elif sort_option == "Highest Rating" and 'Rating' in filtered.columns:
             filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
             filtered = filtered.sort_values(by='temp_rate', ascending=False)
@@ -123,26 +126,28 @@ else:
             label = f"{item_name}  |  {price} {star_text}"
             
             with st.expander(label):
+                # Photo Section
                 if 'Image_URL' in row and row['Image_URL'].strip() != "":
                     try:
                         st.image(row['Image_URL'], use_container_width=True)
                     except:
                         st.caption("📷 Photo link detected but could not be loaded.")
                 
+                # Info Section
                 col_left, col_right = st.columns([2, 1])
                 with col_left:
                     st.markdown(f"🏠 **{row.get('Restaurant', 'N/A')}**")
                     if row.get('Details'):
                         st.info(row['Details'])
-                    # Optional: Display the meal type if available
-                    if row.get('Meal') and row['Meal'] != 'Uncategorized':
+                    if row.get('Meal') and row['Meal'] != 'Other':
                         st.write(f"🍴 **Category:** {row['Meal']}")
-
+                
                 with col_right:
                     park_name = row.get('Park', '')
                     if park_name:
                         st.markdown(f'<span class="park-badge">{park_name}</span>', unsafe_allow_html=True)
                 
+                # Feedback Section
                 st.write("---")
                 user_rate = st.slider(f"Your rating for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"s_{index}")
                 
