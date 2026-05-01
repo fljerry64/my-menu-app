@@ -39,6 +39,7 @@ st.markdown("""
     .col-item { flex: 3; }
     .col-price { flex: 1; text-align: right; }
 
+    /* Hide standard Streamlit elements */
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
@@ -46,7 +47,8 @@ st.markdown("""
 # 3. Data Loading & Cleaning
 @st.cache_data
 def load_data():
-    file_path = 'universal_food_data.csv'
+    # Use the specific file name you are currently working with
+    file_path = 'universal_food_data.csv' 
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
         
@@ -54,11 +56,13 @@ def load_data():
         if 'Restaurant' in df.columns:
             df['Restaurant'] = df['Restaurant'].str.title()
         
-        # Clean Price column
+        # Robust Price Cleaning[cite: 1]
         if 'Price' in df.columns:
-            df['Price'] = df['Price'].replace('[\$,]', '', regex=True).astype(float)
+            # Convert to string, remove symbols, strip whitespace, then convert to number
+            df['Price'] = df['Price'].astype(str).str.replace('[\$,]', '', regex=True).str.strip()
+            df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
             
-        # ADVANCED DATA CORRECTION
+        # Advanced Category Correction[cite: 1]
         if 'Meal' in df.columns:
             # Fix 1: Catch beverages and Coca-Cola cups mislabeled in the CSV
             bev_keywords = ['Water', 'Icee', 'Soda', 'Drink', 'Juice', 'Coffee', 'Tea', 
@@ -110,7 +114,7 @@ if not df.empty:
 
     filtered_df = filtered_df.sort_values(by='Price')
 
-    # 6. Display Data using Expanders
+    # 6. Display Data using Expanders[cite: 1]
     if not filtered_df.empty:
         st.markdown(f'''
             <div class="header-row">
@@ -120,11 +124,17 @@ if not df.empty:
         ''', unsafe_allow_html=True)
 
         for index, row in filtered_df.iterrows():
-            price_str = f"${row['Price']:,.2f}"
-            # Added Restaurant Name to the label here[cite: 1]
+            # Format price and handle missing values[cite: 1]
+            if pd.isna(row['Price']):
+                price_str = "Price TBD"
+            else:
+                price_str = f"${row['Price']:,.2f}"
+            
+            # The label shown in the list results[cite: 1]
             label = f"{row['Item']} ({row['Restaurant']}) — {price_str}"
             
             with st.expander(label):
+                # Detailed content revealed on click[cite: 1]
                 st.write(f"**Details:** {row['Details'] if pd.notna(row['Details']) else 'No details available.'}")
                 st.caption(f"Park: {row['Park']}")
     else:
