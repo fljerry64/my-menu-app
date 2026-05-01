@@ -1,170 +1,66 @@
-import streamlit as st
-import pandas as pd
 import os
+from flask import Flask, render_template, request, redirect, url_for, flash
+import pandas as pd
 
-# --- PAGE CONFIG & CUSTOM STYLING ---
-st.set_page_config(page_title="Frank's Universal Food Guide", page_icon="🎢", layout="centered")
+app = Flask(__name__)
+app.secret_key = 'supersecretkey'
 
-# Professional UI styling
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stExpander {
-        background-color: white !important;
-        border-radius: 10px !important;
-        border: 1px solid #e0e0e0 !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
-    }
-    .park-badge {
-        background-color: #007bff;
-        color: white;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: bold;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Configuration for photo uploads
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-st.title("🍔 Frank's Universal Food Guide")
-st.markdown("---")
+# Load the data - assuming a CSV structure for the guide
+DATA_FILE = 'universal_food_data.csv'
 
-# --- HELPER FUNCTIONS ---
-def get_stars(rating):
-    """Converts numeric rating string to star emojis."""
-    try:
-        r = float(rating)
-        if r <= 0: return ""
-        full_stars = int(r)
-        half_star = 1 if (r - full_stars) >= 0.5 else 0
-        return "⭐" * full_stars + ("½" if half_star else "")
-    except: return ""
+def get_data():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE)
+    return pd.DataFrame(columns=['id', 'name', 'park', 'meal_type', 'price', 'rating', 'image_path'])
 
-# --- DATA LOADING ---
-files = [f for f in os.listdir('.') if f.endswith('.csv')]
+@app.route('/')
+def index():
+    df = get_data()
+    
+    # Get filter parameters
+    search_query = request.args.get('search', '').lower()
+    park_filter = request.args.get('park', '')
+    meal_filter = request.args.get('meal_type', '')
 
-if not files:
-    st.error("📂 No CSV file found in your GitHub repository!")
-else:
-    # Prioritizes your master menu file
-    target_file = "Universal_Master_Menu.csv" if "Universal_Master_Menu.csv" in files else files[0]
-    try:
-        # Load and clean data headers/content
-        df = pd.read_csv(target_file, keep_default_na=False)
-        df.columns = [c.strip() for c in df.columns]
-        
-        for col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-            df[col] = df[col].replace(['nan', 'NaN', 'N/A', 'n/a', 'None', 'null'], '')
+    # Apply Filters
+    if search_query:
+        df = df[df['name'].str.lower().str.contains(search_query)]
+    if park_filter:
+        df = df[df['park'] == park_filter]
+    if meal_filter:
+        df = df[df['meal_type'] == meal_filter]
 
-        # Create numeric price for sorting
-        if 'Price' in df.columns:
-            df['numeric_price'] = (
-                df['Price'].str.replace('[\$,]', '', regex=True)
-                .replace('', '0')
-                .apply(pd.to_numeric, errors='coerce').fillna(0)
-            )
-        else:
-            df['numeric_price'] = 0
+    # Automatic price sorting (Low to High)
+    df = df.sort_values(by='price')
 
-        # --- SEARCH & FILTER UI ---
-        query = st.text_input("🔍 What are you craving?", placeholder="Search by item name (e.g. 'Egg', 'Taco', 'Burger')")
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if 'Park' in df.columns:
-                park_list = sorted([p for p in df['Park'].unique() if p])
-                selected_park = st.selectbox("📍 Filter by Park", ["All Parks"] + park_list)
-            else:
-                selected_park = "All Parks"
-        
-        with c2:
-            # Filter by Meal Type (Only shows items tagged as Breakfast)
-            if 'Meal' in df.columns:
-                meal_types = ["All Meals", "Breakfast"]
-                selected_meal = st.selectbox("🍴 Filter by Meal", meal_types)
-            else:
-                selected_meal = "All Meals"
+    items = df.to_dict('records')
+    return render_template('index.html', items=items)
 
-        with c3:
-            sort_option = st.selectbox("⚖️ Sort results", ["Lowest Price", "Highest Rating"])
+@app.route('/submit_review', methods=['POST'])
+def submit_review():
+    name = request.form.get('item_name')
+    rating = request.form.get('rating')
+    file = request.files.get('photo')
+    
+    # Handle photo upload
+    image_path = ""
+    if file:
+        filename = f"{name.replace(' ', '_')}_{file.filename}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        image_path = f"uploads/{filename}"
 
-        # --- FILTERING LOGIC ---
-        filtered = df.copy()
-        
-        # 1. Park Filter
-        if selected_park != "All Parks" and 'Park' in filtered.columns:
-            filtered = filtered[filtered['Park'] == selected_park]
+    # Email-based feedback logic (simulated via log/flash)
+    # In a production environment, use Flask-Mail here
+    print(f"Feedback Received: {name} - Rating: {rating} - Image: {image_path}")
+    
+    flash('Thank you for your rating and photo!')
+    return redirect(url_for('index'))
 
-        # 2. Meal Filter (Strictly limits results to Breakfast)
-        if selected_meal == "Breakfast" and 'Meal' in filtered.columns:
-            filtered = filtered[filtered['Meal'] == 'Breakfast']
-        
-        # 3. Targeted Search
-        if query:
-            search_words = query.lower().split()
-            mask = filtered['Item'].str.lower().apply(lambda x: all(word in str(x) for word in search_words))
-            filtered = filtered[mask]
-
-        # 4. Sorting
-        if sort_option == "Lowest Price":
-            filtered = filtered.sort_values(by='numeric_price', ascending=True)
-        elif sort_option == "Highest Rating" and 'Rating' in filtered.columns:
-            filtered['temp_rate'] = pd.to_numeric(filtered['Rating'], errors='coerce').fillna(0)
-            filtered = filtered.sort_values(by='temp_rate', ascending=False)
-
-        st.write(f"Found **{len(filtered)}** items matching your search.")
-
-        # --- DISPLAY RESULTS ---
-        for index, row in filtered.iterrows():
-            item_name = row.get('Item', 'Unknown Item')
-            price = row.get('Price', '')
-            rating_val = row.get('Rating', '')
-            star_text = get_stars(rating_val)
-            
-            label = f"{item_name}  |  {price} {star_text}"
-            
-            with st.expander(label):
-                # Photo Section
-                if 'Image_URL' in row and row['Image_URL'].strip() != "":
-                    try:
-                        st.image(row['Image_URL'], use_container_width=True)
-                    except:
-                        st.caption("📷 Photo link detected but could not be loaded.")
-                
-                # Info Section
-                col_left, col_right = st.columns([2, 1])
-                with col_left:
-                    st.markdown(f"🏠 **{row.get('Restaurant', 'N/A')}**")
-                    if row.get('Details'):
-                        st.info(row['Details'])
-                    if row.get('Meal') and row['Meal'] != 'Other':
-                        st.write(f"🍴 **Category:** {row['Meal']}")
-                
-                with col_right:
-                    park_name = row.get('Park', '')
-                    if park_name:
-                        st.markdown(f'<span class="park-badge">{park_name}</span>', unsafe_allow_html=True)
-                
-                # Feedback Section
-                st.write("---")
-                user_rate = st.slider(f"Your rating for {item_name}", 1.0, 5.0, 5.0, 0.5, key=f"s_{index}")
-                
-                admin_email = "YOUR_EMAIL@gmail.com"
-                email_subject = f"Review for {item_name}"
-                email_body = f"Rating: {user_rate}/5 stars for {item_name} at {row.get('Restaurant')}. %0D%0A%0D%0A(Attach photo here!)"
-                mailto_link = f"mailto:{admin_email}?subject={email_subject}&body={email_body}"
-                
-                st.markdown(f'''
-                    <a href="{mailto_link}" style="text-decoration:none;">
-                        <div style="background: linear-gradient(90deg, #007bff 0%, #0056b3 100%); 
-                        color: white; text-align: center; padding: 12px; border-radius: 8px; 
-                        font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            📧 Submit Rating & Attach Photo
-                        </div>
-                    </a>
-                ''', unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"⚠️ App Error: {e}")
+if __name__ == '__main__':
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    app.run(debug=True)
